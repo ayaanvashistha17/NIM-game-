@@ -1,0 +1,265 @@
+#include <iostream>
+#include <vector>
+#include <cstdlib>
+#include <ctime>
+#include <limits>
+
+using namespace std;
+
+const int DEFAULT_NUM_HEAPS = 5;
+
+void displayheaps(const vector<int>& heaps)
+{
+    char heaplabel = 'A';
+    for(size_t m = 0; m < heaps.size(); ++m)
+    {
+        cout << heaplabel++ << ":";
+        for(int j = 0; j < heaps[m]; ++j)
+        {
+            cout << "0";
+        }
+        cout << endl;
+    }
+}
+
+void distributetokens(vector<int>& heaps, int totaltokens)
+{
+    int num_heaps = heaps.size();
+    
+    // First ensure at least 1 token per heap
+    for(int m = 0; m < num_heaps; ++m) {
+        heaps[m] = 1;
+        totaltokens--;
+    }
+    
+    // Distribute remaining tokens randomly
+    for(int m = 0; m < num_heaps; ++m) {
+        if(totaltokens <= 0) break;
+        int extra = rand() % (totaltokens + 1);
+        heaps[m] += extra;
+        totaltokens -= extra;
+    }
+}
+
+bool isgameover(const vector<int>& heaps)
+{
+    for(size_t m = 0; m < heaps.size(); ++m)
+    {
+        if(heaps[m] > 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void displaywinner(bool player_1_lost, const string &player_1_name, const string &player_2_name)
+{
+   if(player_1_lost)
+   {
+       cout << player_2_name << " is winner!!" << endl;
+   }
+   else{
+       cout << player_1_name << " is winner!!" << endl;
+   }
+}
+
+bool isValidMove(const vector<int>& heaps, int heapindex, int tokens, int num_heaps) {
+    return (heapindex >= 0 && 
+            heapindex < num_heaps && 
+            heaps[heapindex] >= tokens && 
+            tokens >= 1 && 
+            tokens <= 2);
+}
+
+bool play_user_vs_user(vector<int> &heaps, const string &player_1_name, const string &player_2_name)
+{
+    int num_heaps = heaps.size();
+    int playerturn = 1;
+    
+    while(!isgameover(heaps))
+    {
+        cout << "Current state of heaps:" << endl;
+        displayheaps(heaps);
+        
+        cout << "Player " << (playerturn == 1 ? player_1_name : player_2_name) << "'s turn. Enter the heap and tokens to take (e.g., A 2): ";
+        char heap;
+        int tokens;
+        
+        if(!(cin >> heap >> tokens)) {
+            cout << "Invalid input. Please try again." << endl;
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            continue;
+        }
+        
+        int heapindex = toupper(heap) - 'A';
+        
+        if(!isValidMove(heaps, heapindex, tokens, num_heaps))
+        {
+            cout << "Invalid move. Please try again." << endl;
+            continue;
+        }
+        
+        heaps[heapindex] -= tokens;
+        
+        if(isgameover(heaps))
+        {
+            displaywinner(playerturn == 1, player_1_name, player_2_name);
+            return true;
+        }
+        
+        playerturn = 3 - playerturn;
+    }
+    return false;
+}
+
+void pc_vs_user(const string &playername)
+{
+    int numheaps_local;
+    cout << "Enter the number of heaps (or columns): ";
+    
+    while(!(cin >> numheaps_local) || numheaps_local <= 0) {
+        cout << "Invalid input. Please enter a positive number: ";
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    }
+    
+    vector<int> heaps(numheaps_local, 0);
+    
+    int totaltokens;
+    cout << "Enter the total number of tokens (minimum " << numheaps_local << "): ";
+    
+    while(!(cin >> totaltokens) || totaltokens < numheaps_local) {
+        cout << "Invalid input. Please enter at least " << numheaps_local << " tokens: ";
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    }
+    
+    distributetokens(heaps, totaltokens);
+    int playerturn = 1;
+
+    while(!isgameover(heaps))
+    {
+        cout << "Current state of heaps: " << endl;
+        displayheaps(heaps);
+
+        if(playerturn == 1)
+        {
+            cout << playername << "'s turn. Enter the heap and tokens to take (e.g., A 2): ";
+            char heap;
+            int tokens;
+            
+            if(!(cin >> heap >> tokens)) {
+                cout << "Invalid input. Please try again." << endl;
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                continue;
+            }
+            
+            int heapindex = toupper(heap) - 'A';
+            
+            if(!isValidMove(heaps, heapindex, tokens, numheaps_local))
+            {
+                cout << "Invalid move. Please try again." << endl;
+                continue;
+            }
+            
+            heaps[heapindex] -= tokens;
+        }
+        else
+        {
+            // PC's turn - find a non-empty heap
+            int heapindex;
+            vector<int> non_empty_heaps;
+            
+            for(int i = 0; i < numheaps_local; i++) {
+                if(heaps[i] > 0) {
+                    non_empty_heaps.push_back(i);
+                }
+            }
+            
+            if(non_empty_heaps.empty()) {
+                break; // No moves left
+            }
+            
+            // Choose a random non-empty heap
+            heapindex = non_empty_heaps[rand() % non_empty_heaps.size()];
+            int tokens_to_take = min(2, heaps[heapindex]);
+            
+            heaps[heapindex] -= tokens_to_take;
+            cout << "PC takes " << tokens_to_take << " tokens from heap " << char('A' + heapindex) << "." << endl;
+        }
+        
+        if(isgameover(heaps))
+        {
+            displaywinner(playerturn == 1, playername, "PC");
+            break;
+        }
+        
+        playerturn = 3 - playerturn;
+    }
+}
+
+int main()
+{
+    srand(static_cast<unsigned>(time(nullptr))); // Initialize random seed once
+    
+    int choice;
+    string player_1_name, player_2_name;
+    
+    do
+    {
+        cout << "NIM GAME MENU: " << endl;
+        cout << "1. Two player (user vs user)" << endl;
+        cout << "2. Two player (PC vs user)" << endl;
+        cout << "3. Exit " << endl;
+        cout << "Enter your choice: ";
+        
+        if (!(cin >> choice)) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid input. Please enter a number." << endl;
+            continue;
+        }
+
+        switch(choice)
+        {
+            case 1: {
+                cout << "Enter the name of player 1: ";
+                cin >> player_1_name;
+                cout << "Enter the name of player 2: ";
+                cin >> player_2_name;
+                
+                int total_tokens;
+                cout << "Enter the total number of tokens (minimum " << DEFAULT_NUM_HEAPS << "): ";
+                
+                while(!(cin >> total_tokens) || total_tokens < DEFAULT_NUM_HEAPS) {
+                    cout << "Invalid input. Please enter at least " << DEFAULT_NUM_HEAPS << " tokens: ";
+                    cin.clear();
+                    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                }
+                
+                vector<int> heaps(DEFAULT_NUM_HEAPS, 0);
+                distributetokens(heaps, total_tokens);
+                play_user_vs_user(heaps, player_1_name, player_2_name);
+                break;
+            }
+                
+            case 2: {
+                cout << "Enter your name: ";
+                cin >> player_1_name;
+                pc_vs_user(player_1_name);
+                break;
+            }
+                
+            case 3:
+                cout << "Exiting the game. Goodbye!!" << endl;
+                break;
+                
+            default:
+                cout << "Invalid choice. Please try again." << endl;
+        }
+    } while (choice != 3);
+    
+    return 0;
+}
